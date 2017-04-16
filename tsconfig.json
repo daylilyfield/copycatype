@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "outDir": "lib/",
+    "lib": ["es5", "es2015"],
+    "typeRoots": ["node_modules/@types"],
+    "moduleResolution": "node",
+    "noImplicitAny": false,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "removeComments": false,
+    "preserveConstEnums": true,
+    "declaration": true,
+    "noUnusedLocals": true,
+    "noImplicitThis": true,
+    "noUnusedParameters": true
+  },
+  "exclude": [
+    "node_modules",
+    "lib",
+    "test"
+  ]
+}
