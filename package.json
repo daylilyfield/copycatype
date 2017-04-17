@@ -1,7 +1,7 @@
 {
   "name": "copycatype",
   "version": "0.0.1",
-  "description": "Simple stub library for TypeScript",
+  "description": "Simple mock utility for TypeScript",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {

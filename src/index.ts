@@ -1,10 +1,30 @@
 ///<reference path="../node_modules/typescript/lib/lib.es6.d.ts"/>
 
-type FunctionName = string | number | Symbol;
+type FunctionName = string | number | symbol;
 
-class MockSetting {
+class MockSetting<T> {
 
-  mockFunctions = new Map<FunctionName, Function>()
+  readonly target: T;
+  readonly overrides: Partial<T>;
+  private mockFunctions: Map<FunctionName, Function>;
+
+  constructor(target: T, overrides: Partial<T>) {
+    this.target = target;
+    this.overrides = overrides;
+    this.mockFunctions = new Map();
+  }
+
+  mergeOverrides(anotherOverrides: Partial<T>) {
+    Object.assign(this.overrides, anotherOverrides);
+  }
+
+  addMockFunction(name: FunctionName, func: Function) {
+    this.mockFunctions.set(name, func);
+  }
+
+  getMockFunction(name: FunctionName): Function | undefined {
+    return this.mockFunctions.get(name);
+  }
 }
 
 class Invocation {
@@ -18,7 +38,8 @@ class Invocation {
   }
 }
 
-let mockSettings = new Map<any, MockSetting>();
+let mockSettings = new Map<any, MockSetting<any>>();
+let mockFunctions = new Map<Function, Invocation[]>();
 
 export function mock<T>(): T;
 export function mock<T>(overrides: Partial<T>): T;
@@ -28,89 +49,68 @@ export function mock<T>(targetOrOverrides?: T | Partial<T>, overrides?: Partial<
   const t = overrides && targetOrOverrides ? targetOrOverrides : {};
   const os = (overrides ? overrides : targetOrOverrides) || {};
 
+  let setting = mockSettings.get(t);
+  if (setting) {
+    setting.mergeOverrides(overrides);
+    return t as T;
+  }
+
   let proxy = new Proxy(t, {
-
-    get(_target: T, p: PropertyKey, _receiver: any): any {
-      let settings = mockSettings.get(proxy);
-      if (!settings) { throw new Error('no mock settings'); }
-      const mockFunction = settings.mockFunctions.get(p)
-      if (mockFunction) {
-        return mockFunction;
-      }
-
-      const property = os[p] || t[p];
-      if (typeof property === 'function' || property == null) {
-        console.log('decorator on care');
-        const decorator = function(...args) {
-          let result = isFunction(property) ? property.apply(t, arguments) : undefined;
-          let invocation = new Invocation(args, result);
-          (decorator as any).invocations.push(invocation);
-          return result;
-        };
-        (decorator as any).invocations = []
-        settings.mockFunctions.set(p, mockFunction);
-        return decorator;
-      } else {
-        return property;
-      }
-    }
+    get: handleProxyGet
   });
 
-  mockSettings.set(proxy, new MockSetting());
+  mockSettings.set(proxy, new MockSetting(t, os));
+
   return proxy as T;
+}
+
+export function count(method: Function): number {
+  const invocations = mockFunctions.get(method);
+  if (!invocations) { throw new Error('the method is not mocked.'); }
+  return invocations.length;
+}
+
+export function arg(method: Function, callIndex = 0, argIndex = 0): any {
+  const invocations = mockFunctions.get(method);
+  if (!invocations) { throw new Error('the method is not mocked.'); }
+  return invocations[callIndex].args[argIndex];
+}
+
+export function result(method: Function, callIndex = 0): any {
+  const invocations = mockFunctions.get(method);
+  if (!invocations) { throw new Error('the method is not mocked.'); }
+  return invocations[callIndex].result;
 }
 
 function isFunction(suspect: any): suspect is Function {
   return typeof suspect === 'function';
 }
 
-export function count(method: Function): number {
-  return (method as any).invocations.count;
-}
+function handleProxyGet<T>(_target: T, p: PropertyKey, receiver: any): any {
+  const setting = mockSettings.get(receiver);
+  if (!setting) { throw new Error('no mock settings'); }
 
+  const mockFunction = setting.getMockFunction(p);
+  if (mockFunction) {
+    return mockFunction;
+  }
 
-//export function count(method: Function): number {
-//  return  0;
-//}
-//
-//export function arg<T>(method: Function, index: number): T {
-//}
-//
-//export function result<T>(method: Function): T {
-//}
-
-class Stub {
-
-  static of<T>(t: Partial<T>): T {
-    let proxy = new Proxy(t, {
-      get: (target: T, p: PropertyKey, receiver: any): any => {
-        let given = t[p];
-        if (given) {
-          if (typeof(given) === 'function') {
-            return function() {
-              if (!proxy.stub[p]) {
-                proxy.stub[p] = []
-              }
-              console.log(proxy.stub[p])
-              proxy.stub[p].push([arguments]);
-              console.log(proxy.stub[p])
-              let result = given.apply(target, arguments);
-              proxy.stub[p][proxy.stub[p][0].length - 1].push(result);
-              console.log(proxy.stub[p])
-              return result
-            };
-          } else {
-            return given;
-          }
-        }
+  const property = setting.overrides[p] || setting.target[p];
+  const propertyIsFunction = isFunction(property);
+  if (propertyIsFunction || property == null) {
+    const mockFunction = function(...args: any[]): any {
+      const result = propertyIsFunction ? property.apply(setting.target, arguments) : undefined;
+      const invocation = new Invocation(args, result);
+      let invocations = mockFunctions.get(mockFunction);
+      if (invocations) {
+        invocations.push(invocation);
       }
-    });
-    proxy.stub = new Stub()
-    return proxy as T;
-  }
-
-  static unwrap(proxy: any) {
-    return proxy.stub;
+      return result;
+    };
+    setting.addMockFunction(p, mockFunction);
+    mockFunctions.set(mockFunction, []);
+    return mockFunction;
+  } else {
+    return property;
   }
 }
-
