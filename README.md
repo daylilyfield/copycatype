@@ -14,7 +14,7 @@ TBD.
 Usage
 -----
 
-### For Interface
+### Mock for Interface
 
 ```typescript
 import * as assert from 'power-assert';
@@ -41,7 +41,7 @@ assert.equal(arg(foo.baz), 'copycatype');
 assert.equal(result(foo.baz), 'copycatype!');
 ```
 
-### For Instance
+### Mock for Object
 
 TBD.
 
