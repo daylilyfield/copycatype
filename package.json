@@ -1,6 +1,6 @@
 {
   "name": "copycatype",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Simple mock utility for TypeScript",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -8,6 +8,10 @@
     "clean": "rimraf ./lib/",
     "build": "tsc",
     "test": "mocha --compilers ts:espower-typescript/guess test/**/*.test.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daylilyfield/copycatype"
   },
   "keywords": [
     "typescript",
